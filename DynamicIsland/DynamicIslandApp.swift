@@ -504,7 +504,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         // Use a consistent height for different view types
         if coordinator.currentView == .timer {
-            baseSize.height = NotchTimerView.expandedHeight
+            baseSize.height = NotchTimerView.expandedHeight(headerHeight: vm.effectiveClosedNotchHeight)
         } else if coordinator.currentView == .notes || coordinator.currentView == .clipboard {
             let preferredHeight = coordinator.notesLayoutState.preferredHeight
             baseSize.height = max(baseSize.height, preferredHeight)

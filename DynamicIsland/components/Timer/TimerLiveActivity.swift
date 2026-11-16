@@ -181,7 +181,9 @@ struct TimerLiveActivity: View {
     }
 
     private var middleSectionWidth: CGFloat {
-        vm.closedNotchSize.width + (isHovering ? 8 : 0)
+        let width = vm.closedNotchSize.width + (isHovering ? 8 : 0)
+        return timerManager.customTaskID != nil
+            ? CompactCountdownLayout.centerWidth(atLeast: width, screen: vm.screen) : width
     }
 
     private var adjustedNotchHeight: CGFloat {
@@ -328,6 +330,17 @@ struct TimerLiveActivity: View {
         }
     }
 
+    private var namedCompactLayout: CompactCountdownLayout? {
+        guard timerManager.customTaskID != nil else { return nil }
+        return CompactCountdownLayout(
+            centerWidth: middleSectionWidth,
+            leftReserved: iconWidth + CompactCountdownLayout.cameraClearance + 8,
+            rightReserved: rightWingWidth + CompactCountdownLayout.cameraClearance,
+            preferredTitleWidth: infoWidth,
+            availableWidth: CompactCountdownLayout.availableWidth(screen: vm.screen)
+        )
+    }
+
     private var baseTimerLayout: some View {
         HStack(spacing: 0) {
             leftWingView()
@@ -341,10 +354,10 @@ struct TimerLiveActivity: View {
     @ViewBuilder
     private func leftWingView() -> some View {
         Color.clear
-            .frame(width: leftWingWidth, height: notchContentHeight)
-            .background(alignment: .leading) {
+            .frame(width: namedCompactLayout?.wingWidth ?? leftWingWidth, height: notchContentHeight)
+            .background(alignment: namedCompactLayout == nil ? .leading : .trailing) {
                 HStack(spacing: showsInfoSection ? 8 : 0) {
-                    if timerManager.customTaskID != nil {
+                    if let layout = namedCompactLayout, layout.titleWidth > 18 {
                         infoSection
                     }
                     iconSection
@@ -352,8 +365,9 @@ struct TimerLiveActivity: View {
                         infoSection
                     }
                 }
-                .padding(.leading, wingPadding / 2)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+                .padding(.leading, namedCompactLayout == nil ? wingPadding / 2 : 0)
+                .padding(.trailing, namedCompactLayout == nil ? 0 : CompactCountdownLayout.cameraClearance)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: namedCompactLayout == nil ? .leading : .trailing)
             }
     }
 
@@ -367,7 +381,7 @@ struct TimerLiveActivity: View {
     @ViewBuilder
     private func rightWingView() -> some View {
         Color.clear
-            .frame(width: rightWingWidth, height: notchContentHeight)
+            .frame(width: namedCompactLayout?.wingWidth ?? rightWingWidth, height: notchContentHeight)
             .background(alignment: .trailing) {
                 HStack(spacing: ringOnRight && showsCountdown ? 8 : 0) {
                     if ringOnRight {
@@ -414,8 +428,9 @@ struct TimerLiveActivity: View {
     }
     
     private var infoSection: some View {
-        let availableWidth = max(0, infoWidth - 10)
-        let safeWidth = max(44, availableWidth - 6)
+        let sectionWidth = namedCompactLayout?.titleWidth ?? infoWidth
+        let availableWidth = max(0, sectionWidth - 10)
+        let safeWidth = max(0, availableWidth - 8)
         let resolvedTextWidth = min(max(titleTextWidth, 44), safeWidth)
         let marqueeLabel = shouldDisplayLabel && timerManager.customTaskID == nil
             && (timerManager.isFinished || timerManager.isOvertime || titleTextWidth > availableWidth)
@@ -424,7 +439,7 @@ struct TimerLiveActivity: View {
 
         return Rectangle()
             .fill(.black)
-            .frame(width: infoWidth, height: notchContentHeight)
+            .frame(width: sectionWidth, height: notchContentHeight)
             .overlay(alignment: .leading) {
                 VStack(alignment: .leading, spacing: showsBarHere ? 4 : 0) {
                     if shouldDisplayLabel {
@@ -703,8 +718,8 @@ struct TimerLiveActivity: View {
     private func currentControlWindowMetrics() -> TimerControlWindowMetrics {
         TimerControlWindowMetrics(
             notchHeight: max(vm.closedNotchSize.height, vm.effectiveClosedNotchHeight),
-            notchWidth: vm.closedNotchSize.width + (isHovering ? 8 : 0),
-            rightWingWidth: rightWingWidth,
+            notchWidth: middleSectionWidth,
+            rightWingWidth: namedCompactLayout?.wingWidth ?? rightWingWidth,
             cornerRadius: cornerRadiusInsets.closed.bottom,
             spacing: 6
         )

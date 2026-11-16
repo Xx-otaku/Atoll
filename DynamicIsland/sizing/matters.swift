@@ -351,3 +351,31 @@ func getClosedNotchSize(screen: String? = nil) -> CGSize {
 
     return .init(width: notchWidth, height: notchHeight)
 }
+
+
+/// Shared geometry for named countdowns. Equal wings keep the center over the camera.
+struct CompactCountdownLayout {
+    static let cameraClearance: CGFloat = 6
+    let wingWidth: CGFloat
+    let titleWidth: CGFloat
+
+    init(centerWidth: CGFloat, leftReserved: CGFloat, rightReserved: CGFloat,
+         preferredTitleWidth: CGFloat, availableWidth: CGFloat) {
+        let fixedWingWidth = max(leftReserved, rightReserved)
+        let availableWingWidth = max(fixedWingWidth, (availableWidth - centerWidth) / 2)
+        titleWidth = min(max(0, preferredTitleWidth), max(0, availableWingWidth - leftReserved))
+        wingWidth = max(fixedWingWidth, leftReserved + titleWidth)
+    }
+
+    static func centerWidth(atLeast width: CGFloat, screen name: String?) -> CGFloat {
+        guard let screen = NSScreen.screens.first(where: { $0.localizedName == name }) ?? NSScreen.main,
+              let left = screen.auxiliaryTopLeftArea, let right = screen.auxiliaryTopRightArea else {
+            return width
+        }
+        return max(width, 2 * max(screen.frame.midX - left.maxX, right.minX - screen.frame.midX))
+    }
+
+    static func availableWidth(screen: String?) -> CGFloat {
+        max(0, min(openNotchSize.width, getScreenFrame(screen)?.width ?? openNotchSize.width) - 48)
+    }
+}

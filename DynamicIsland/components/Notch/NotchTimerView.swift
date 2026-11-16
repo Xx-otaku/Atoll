@@ -23,7 +23,9 @@ import AppKit
 #endif
 
 struct NotchTimerView: View {
-    static let expandedHeight: CGFloat = 278
+    static func expandedHeight(headerHeight: CGFloat) -> CGFloat {
+        max(300, max(24, headerHeight) + 232)
+    }
 
     @EnvironmentObject var vm: DynamicIslandViewModel
     @ObservedObject var timerManager = TimerManager.shared
@@ -397,8 +399,7 @@ struct NotchTimerView: View {
     }
 
     private var resolvedNotchHeight: CGFloat {
-        let height = vm.notchSize.height
-        return height > 0 ? height : openNotchSize.height
+        Self.expandedHeight(headerHeight: vm.effectiveClosedNotchHeight)
     }
 
     private var headerHeight: CGFloat {

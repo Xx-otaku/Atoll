@@ -32,7 +32,7 @@ jobs:
           xcodebuild build -project DynamicIsland.xcodeproj -scheme DynamicIsland \
             -configuration Release -destination 'platform=macOS,arch=arm64' \
             -derivedDataPath "$RUNNER_TEMP/AtollBuild" \
-            ARCHS=arm64 ONLY_ACTIVE_ARCH=YES CURRENT_PROJECT_VERSION=1161 \
+            ARCHS=arm64 ONLY_ACTIVE_ARCH=YES CURRENT_PROJECT_VERSION=1162 \
             SWIFT_ACTIVE_COMPILATION_CONDITIONS='$(inherited) PERSONAL_ATOLL_BUILD' \
             CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= \
             CODE_SIGN_IDENTITY=- \
@@ -49,13 +49,13 @@ jobs:
           mkdir "$RUNNER_TEMP/AtollDistribution"
           ditto "$app" "$RUNNER_TEMP/AtollDistribution/Atoll.app"
           cp LICENSE NOTICE COPYRIGHT_ASSETS TRADEMARKS "$RUNNER_TEMP/AtollDistribution"
-          ditto -c -k --sequesterRsrc "$RUNNER_TEMP/AtollDistribution" package/Atoll-2.3.3-Task-Name.2-arm64.zip
+          ditto -c -k --sequesterRsrc "$RUNNER_TEMP/AtollDistribution" package/Atoll-2.3.3-Task-Name.3-arm64.zip
           cd package
-          shasum -a 256 Atoll-2.3.3-Task-Name.2-arm64.zip > SHA256SUMS
+          shasum -a 256 Atoll-2.3.3-Task-Name.3-arm64.zip > SHA256SUMS
           git rev-parse HEAD > SOURCE-COMMIT
       - uses: actions/upload-artifact@v4
         with:
-          name: Atoll-2.3.3-Task-Name.2-arm64
+          name: Atoll-2.3.3-Task-Name.3-arm64
           path: package/
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
@@ -65,7 +65,7 @@ jobs:
           path: ${{ runner.temp }}/atoll-build.log
 
   publish:
-    if: github.repository == 'Xx-otaku/Atoll' && contains(github.event.head_commit.message, '[release v2.3.3-task-name.2]')
+    if: github.repository == 'Xx-otaku/Atoll' && contains(github.event.head_commit.message, '[release v2.3.3-task-name.3]')
     needs: build
     runs-on: ubuntu-latest
     permissions:
@@ -73,7 +73,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: Atoll-2.3.3-Task-Name.2-arm64
+          name: Atoll-2.3.3-Task-Name.3-arm64
           path: package
       - name: Publish the verified package
         env:
@@ -83,19 +83,18 @@ jobs:
           cd package
           sha256sum --check SHA256SUMS
           test "$(cat SOURCE-COMMIT)" = "$GITHUB_SHA"
-          tag=v2.3.3-task-name.2
+          tag=v2.3.3-task-name.3
           if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "Release $tag already exists"
             exit 0
           fi
-          gh release create "$tag" Atoll-2.3.3-Task-Name.2-arm64.zip SHA256SUMS SOURCE-COMMIT \
+          gh release create "$tag" Atoll-2.3.3-Task-Name.3-arm64.zip SHA256SUMS SOURCE-COMMIT \
             --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
-            --title "Atoll 2.3.3 · 任务倒计时 v2" --notes-file - <<'NOTES'
+            --title "Atoll 2.3.3 · 任务倒计时 v3" --notes-file - <<'NOTES'
           基于 Atoll 2.3.3 的独立构建，适用于 Apple 芯片 Mac。
 
-          - 收起灵动岛后，自定义倒计时的任务名常显在左侧。长标题以省略号截断。
-          - 任务名输入框采用深色样式，计时页面留出完整的底部按钮空间。
-          - 展开后仍可悬停查看完整名称，点击修改任务名。
+          - 修复收起时绿色时钟图标被实体刘海遮挡。
+          - 计时页向下扩展，完整显示「开始」和「重置」按钮。
 
           解压后把 Atoll.app 拖到「应用程序」。替换前请退出正在运行的 Atoll。此构建使用临时签名，未经过 Apple 公证。
           NOTES

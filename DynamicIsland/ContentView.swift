@@ -158,7 +158,7 @@ struct ContentView: View {
         }
         
         if coordinator.currentView == .timer {
-            return CGSize(width: baseSize.width, height: NotchTimerView.expandedHeight)
+            return CGSize(width: baseSize.width, height: NotchTimerView.expandedHeight(headerHeight: vm.effectiveClosedNotchHeight))
         }
         
         if coordinator.currentView == .notes || coordinator.currentView == .clipboard {
@@ -523,7 +523,11 @@ struct ContentView: View {
 
     private var mainLayoutBase: some View {
         NotchLayout()
-            .frame(alignment: .top)
+            .frame(
+                minHeight: vm.notchState == .open && coordinator.currentView == .timer
+                    ? dynamicNotchSize.height - 12 : nil,
+                alignment: .top
+            )
             .padding(.horizontal, notchHorizontalPadding)
             .padding([.horizontal, .bottom], vm.notchState == .open ? 12 : 0)
             .background(.black)
@@ -1204,18 +1208,31 @@ struct ContentView: View {
             centerBaseWidth: centerBaseWidth,
             notchHeight: notchContentHeight
         )
-        let effectiveCenterWidth = inlineSneakPeekActive ? 380 : centerBaseWidth
         let showsTaskOnLeft = secondary == .timer && timerManager.customTaskID != nil
-        let taskLabelWidth = showsTaskOnLeft
-            ? min(TimerSupplementMetrics.timerNameFrameWidth(for: timerManager.timerName), 158)
-            : 0
-        let notchWidth = taskLabelWidth + wingBaseWidth + effectiveCenterWidth + rightWingWidth
+        let nominalCenterWidth = inlineSneakPeekActive ? 380 : centerBaseWidth
+        let effectiveCenterWidth = showsTaskOnLeft
+            ? CompactCountdownLayout.centerWidth(atLeast: nominalCenterWidth, screen: vm.screen)
+            : nominalCenterWidth
+        let clearance = CompactCountdownLayout.cameraClearance
+        let compactLayout = CompactCountdownLayout(
+            centerWidth: effectiveCenterWidth,
+            leftReserved: wingBaseWidth + clearance,
+            rightReserved: rightWingWidth + clearance,
+            preferredTitleWidth: min(TimerSupplementMetrics.timerNameFrameWidth(for: timerManager.timerName), 158),
+            availableWidth: CompactCountdownLayout.availableWidth(screen: vm.screen)
+        )
+        let taskLabelWidth = compactLayout.titleWidth
+        let notchWidth = effectiveCenterWidth + (showsTaskOnLeft
+            ? compactLayout.wingWidth * 2 : wingBaseWidth + rightWingWidth)
         let badgeBaseSize = max(13, notchContentHeight * 0.36)
         let badgeDisplaySize = badgeDisplaySize(for: secondary, baseSize: badgeBaseSize)
         let badgeOffset = badgeOverlayOffset(for: secondary, badgeSize: badgeDisplaySize)
 
         HStack(spacing: 0) {
             if showsTaskOnLeft {
+                Color.clear.frame(width: max(0, compactLayout.wingWidth - wingBaseWidth - clearance - (taskLabelWidth > 14 ? taskLabelWidth : 0)))
+            }
+            if showsTaskOnLeft && taskLabelWidth > 14 {
                 Text(timerManager.timerName)
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(.white)
@@ -1242,6 +1259,9 @@ struct ContentView: View {
                     .contentTransition(.symbolEffect(.replace))
             }
             .frame(width: wingBaseWidth, height: notchContentHeight)
+            if showsTaskOnLeft {
+                Color.clear.frame(width: clearance)
+            }
 
             Rectangle()
                 .fill(.black)
@@ -1295,6 +1315,9 @@ struct ContentView: View {
                     .clipped()
                 )
 
+            if showsTaskOnLeft {
+                Color.clear.frame(width: compactLayout.wingWidth - rightWingWidth)
+            }
             musicRightWing(for: secondary, notchHeight: notchContentHeight, trailingWidth: rightWingWidth)
                 .frame(width: rightWingWidth, height: notchContentHeight, alignment: .center)
                 .contentShape(Rectangle())

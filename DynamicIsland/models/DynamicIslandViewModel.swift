@@ -219,6 +219,15 @@ class DynamicIslandViewModel: NSObject, ObservableObject {
             }
             .store(in: &cancellables)
 
+        coordinator.$currentView
+            .removeDuplicates()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                guard let self, self.notchState == .open else { return }
+                self.notchSize = self.calculateDynamicNotchSize()
+            }
+            .store(in: &cancellables)
+
         coordinator.$notesLayoutState
             .removeDuplicates()
             .receive(on: RunLoop.main)
@@ -362,7 +371,7 @@ class DynamicIslandViewModel: NSObject, ObservableObject {
         var adjustedSize = baseSize
 
         if coordinator.currentView == .timer {
-            adjustedSize.height = NotchTimerView.expandedHeight
+            adjustedSize.height = NotchTimerView.expandedHeight(headerHeight: effectiveClosedNotchHeight)
         } else if coordinator.currentView == .notes || coordinator.currentView == .clipboard {
             let preferred = coordinator.notesLayoutState.preferredHeight
             adjustedSize.height = max(adjustedSize.height, preferred)
