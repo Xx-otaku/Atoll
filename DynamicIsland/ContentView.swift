@@ -1916,8 +1916,14 @@ struct ContentView: View {
 
     // MARK: - Private Methods
     private func openNotch() {
-        withAnimation(.bouncy.speed(1.2)) {
+        if coordinator.currentView == .timer {
+            // The timer view animates its own transition. Keep the synchronous
+            // AppKit window resize outside that SwiftUI animation transaction.
             vm.open()
+        } else {
+            withAnimation(.bouncy.speed(1.2)) {
+                vm.open()
+            }
         }
     }
 
@@ -2139,9 +2145,7 @@ struct ContentView: View {
                           !self.coordinator.isHoverOpenSuppressed else { return }
 
                     if shouldFocusTimerTab {
-                        withAnimation(.smooth) {
-                            self.coordinator.currentView = .timer
-                        }
+                        self.coordinator.currentView = .timer
                     }
                     self.openNotch()
                 }

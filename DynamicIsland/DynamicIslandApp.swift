@@ -387,10 +387,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 .environmentObject(viewModel)
                 .environmentObject(webcamManager)
         )
-        // The app sets this panel's frame explicitly. SwiftUI must not resize it
-        // from windowDidLayout while AppKit is already updating its constraints.
+        // Keep SwiftUI below the AppKit content-view boundary. As the direct
+        // content view it can resize the panel during windowDidLayout, even
+        // with sizingOptions disabled.
+        let container = NSView(frame: NSRect(origin: .zero, size: window.frame.size))
         hostingView.sizingOptions = []
-        window.contentView = hostingView
+        hostingView.frame = container.bounds
+        hostingView.autoresizingMask = [.width, .height]
+        container.addSubview(hostingView)
+        window.contentView = container
         
         window.orderFrontRegardless()
         // Pin above every space (fullscreen included) only for "Never hide"; the
