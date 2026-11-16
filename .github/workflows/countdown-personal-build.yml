@@ -9,6 +9,7 @@ permissions:
 
 jobs:
   build:
+    if: "!contains(github.event.head_commit.message, '[release v2.3.3-task-name.5]')"
     runs-on: macos-26
     timeout-minutes: 45
     steps:
@@ -66,15 +67,17 @@ jobs:
 
   publish:
     if: github.repository == 'Xx-otaku/Atoll' && contains(github.event.head_commit.message, '[release v2.3.3-task-name.5]')
-    needs: build
     runs-on: ubuntu-latest
     permissions:
+      actions: read
       contents: write
     steps:
       - uses: actions/download-artifact@v4
         with:
           name: Atoll-2.3.3-Task-Name.5-arm64
           path: package
+          github-token: ${{ github.token }}
+          run-id: 43817363455
       - name: Publish the verified package
         env:
           GH_TOKEN: ${{ github.token }}
@@ -82,14 +85,15 @@ jobs:
           set -euo pipefail
           cd package
           sha256sum --check SHA256SUMS
-          test "$(cat SOURCE-COMMIT)" = "$GITHUB_SHA"
+          source_sha=34dc27682e09559e070c86f40cf15dd6e79980da
+          test "$(cat SOURCE-COMMIT)" = "$source_sha"
           tag=v2.3.3-task-name.5
           if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "Release $tag already exists"
             exit 0
           fi
           gh release create "$tag" Atoll-2.3.3-Task-Name.5-arm64.zip SHA256SUMS SOURCE-COMMIT \
-            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --repo "$GITHUB_REPOSITORY" --target "$source_sha" \
             --title "Atoll 2.3.3 · 任务倒计时 v5" --notes-file - <<'NOTES'
           基于 Atoll 2.3.3 的独立构建，适用于 Apple 芯片 Mac。
 
