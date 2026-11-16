@@ -23,7 +23,7 @@ jobs:
           fi
           # Use a temporary copy so the official build's entitlements stay intact.
           cp DynamicIsland/DynamicIsland.entitlements "$RUNNER_TEMP/Personal.entitlements"
-          plutil -remove com.apple.security.mach-services "$RUNNER_TEMP/Personal.entitlements"
+          /usr/libexec/PlistBuddy -c "Delete :com.apple.security.mach-services" "$RUNNER_TEMP/Personal.entitlements"
       - name: Build
         run: |
           set -o pipefail
