@@ -24,6 +24,8 @@ jobs:
           # Use a temporary copy so the official build's entitlements stay intact.
           cp DynamicIsland/DynamicIsland.entitlements "$RUNNER_TEMP/Personal.entitlements"
           /usr/libexec/PlistBuddy -c "Delete :com.apple.security.mach-services" "$RUNNER_TEMP/Personal.entitlements"
+          # Remove upstream SDK-specific certificate overrides from the CI checkout.
+          sed -i '' '/"CODE_SIGN_IDENTITY\[sdk=macosx/d; /"DEVELOPMENT_TEAM\[sdk=macosx/d' DynamicIsland.xcodeproj/project.pbxproj
       - name: Build
         run: |
           set -o pipefail
@@ -33,8 +35,7 @@ jobs:
             ARCHS=arm64 ONLY_ACTIVE_ARCH=YES \
             SWIFT_ACTIVE_COMPILATION_CONDITIONS='$(inherited) PERSONAL_ATOLL_BUILD' \
             CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= \
-            'DEVELOPMENT_TEAM[sdk=macosx*]=' \
-            CODE_SIGN_IDENTITY=- 'CODE_SIGN_IDENTITY[sdk=macosx*]=-' \
+            CODE_SIGN_IDENTITY=- \
             CODE_SIGN_ENTITLEMENTS="$RUNNER_TEMP/Personal.entitlements" \
             CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=YES \
             CODE_SIGN_INJECT_BASE_ENTITLEMENTS=YES 2>&1 | tee "$RUNNER_TEMP/atoll-build.log"
