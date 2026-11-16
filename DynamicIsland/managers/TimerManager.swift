@@ -22,12 +22,14 @@ import SwiftUI
 import AVFoundation
 import AppKit
 import Defaults
+import UserNotifications
 
 class TimerManager: ObservableObject {
     // MARK: - Properties
     static let shared = TimerManager()
     
     @Published var isTimerActive: Bool = false
+    @Published private(set) var customTaskID: UUID?
     @Published var timerName: String = "Timer"
     @Published var totalDuration: TimeInterval = 0
     @Published var remainingTime: TimeInterval = 0
@@ -137,7 +139,44 @@ class TimerManager: ObservableObject {
     }
     
     // MARK: - Timer Methods
-    func startTimer(duration: TimeInterval, name: String = "Timer", preset: TimerPreset? = nil) {
+    static func trimmedTaskName(_ name: String) -> String {
+        name.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    @discardableResult
+    func startCustomTimer(duration: TimeInterval, taskName: String) -> Bool {
+        let name = Self.trimmedTaskName(taskName)
+        guard duration > 0, !name.isEmpty else { return false }
+        startTimer(duration: duration, name: name, customTaskID: UUID())
+        let center = UNUserNotificationCenter.current()
+        center.delegate = TimerNotificationDelegate.shared
+        center.requestAuthorization(options: [.alert]) { _, _ in }
+        return true
+    }
+
+    func renameCustomTimer(_ input: String, id: UUID) {
+        let name = Self.trimmedTaskName(input)
+        guard isTimerActive, !isFinished, customTaskID == id, !name.isEmpty else { return }
+        timerName = name
+    }
+
+    private func completeManualTimer() {
+        isFinished = true
+        isOvertime = true
+        playTimerSound()
+        if let id = customTaskID {
+            let content = UNMutableNotificationContent()
+            content.title = String(localized: "Countdown Complete", table: "CountdownTask")
+            content.body = timerName
+            UNUserNotificationCenter.current().add(
+                UNNotificationRequest(identifier: id.uuidString, content: content, trigger: nil)
+            ) { _ in }
+        }
+        remainingTime = -1
+        lastUpdated = Date()
+    }
+
+    func startTimer(duration: TimeInterval, name: String = "Timer", preset: TimerPreset? = nil, customTaskID: UUID? = nil) {
         if activeSource == .external {
             endExternalTimer(triggerSmoothClose: false)
         }
@@ -160,12 +199,12 @@ class TimerManager: ObservableObject {
         lastUpdated = Date()
 
         activePresetId = preset?.id
+        self.customTaskID = customTaskID
         
         // Start countdown timer
-        timerInstance = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-            guard let self = self else { return }
-            
+        timerInstance = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] timer in
             Task { @MainActor in
+                guard let self, self.timerInstance === timer else { return }
                 if !self.isPaused {
                     if self.remainingTime > 0 {
                         // Normal countdown
@@ -173,12 +212,7 @@ class TimerManager: ObservableObject {
                         self.elapsedTime = self.totalDuration - self.remainingTime
                         self.lastUpdated = Date()
                     } else if self.remainingTime == 0 {
-                        // Timer just finished - play sound and start overtime
-                        self.isFinished = true
-                        self.isOvertime = true
-                        self.playTimerSound()
-                        self.remainingTime = -1
-                        self.lastUpdated = Date()
+                        self.completeManualTimer()
                     } else {
                         // Overtime - count negative
                         self.remainingTime -= 1
@@ -242,10 +276,9 @@ class TimerManager: ObservableObject {
         lastUpdated = Date()
         
         // Resume countdown timer with same logic as start timer
-        timerInstance = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-            guard let self = self else { return }
-            
+        timerInstance = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] timer in
             Task { @MainActor in
+                guard let self, self.timerInstance === timer else { return }
                 if !self.isPaused {
                     if self.remainingTime > 0 {
                         // Normal countdown
@@ -253,12 +286,7 @@ class TimerManager: ObservableObject {
                         self.elapsedTime = self.totalDuration - self.remainingTime
                         self.lastUpdated = Date()
                     } else if self.remainingTime == 0 {
-                        // Timer just finished - play sound and start overtime
-                        self.isFinished = true
-                        self.isOvertime = true
-                        self.playTimerSound()
-                        self.remainingTime = -1
-                        self.lastUpdated = Date()
+                        self.completeManualTimer()
                     } else {
                         // Overtime - count negative
                         self.remainingTime -= 1
@@ -353,6 +381,7 @@ class TimerManager: ObservableObject {
         isFinished = false
         isOvertime = false
         activePresetId = nil
+        customTaskID = nil
         activeSource = .none
     }
 
@@ -382,7 +411,9 @@ class TimerManager: ObservableObject {
 
     private func scheduleSmoothClose() {
         // Wait 3 seconds then smoothly close the live activity
+        let scheduledFor = lastUpdated
         DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+            guard self.lastUpdated == scheduledFor else { return }
             withAnimation(.easeInOut(duration: 1.0)) {
                 self.isTimerActive = false
             }
@@ -454,5 +485,18 @@ class TimerManager: ObservableObject {
         } else {
             return String(format: "%d:%02d", minutes, remainingSeconds)
         }
+    }
+}
+
+
+private final class TimerNotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
+    static let shared = TimerNotificationDelegate()
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+    ) {
+        completionHandler([.banner, .list])
     }
 }

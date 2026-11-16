@@ -1025,14 +1025,8 @@ struct SettingsView: View {
                 TerminalSettings()
             }
         case .about:
-            if let controller = updaterController {
-                SettingsForm(tab: .about) {
-                    About(updaterController: controller)
-                }
-            } else {
-                SettingsForm(tab: .about) {
-                    About(updaterController: SPUStandardUpdaterController(startingUpdater: false, updaterDelegate: nil, userDriverDelegate: nil))
-                }
+            SettingsForm(tab: .about) {
+                About(updaterController: updaterController)
             }
         }
     }
@@ -3559,7 +3553,7 @@ struct CalendarSettings: View {
 struct About: View {
     @State private var showBuildNumber: Bool = false
     @Default(.updateChannel) var updateChannel
-    let updaterController: SPUStandardUpdaterController
+    let updaterController: SPUStandardUpdaterController?
     @Environment(\.openWindow) var openWindow
     var body: some View {
         VStack {
@@ -3601,7 +3595,9 @@ struct About: View {
                     Text("Version info")
                 }
 
-                UpdaterSettingsView(updater: updaterController.updater)
+                if let updaterController {
+                    UpdaterSettingsView(updater: updaterController.updater)
+                }
 
                 HStack(spacing: 30) {
                     Spacer(minLength: 0)
@@ -3698,7 +3694,9 @@ struct About: View {
             //                openWindow(id: "onboarding")
             //            }
             //            .controlSize(.extraLarge)
-            CheckForUpdatesView(updater: updaterController.updater)
+            if let updaterController {
+                CheckForUpdatesView(updater: updaterController.updater)
+            }
         }
         .navigationTitle("About")
     }

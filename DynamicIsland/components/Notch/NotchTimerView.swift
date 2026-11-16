@@ -38,6 +38,9 @@ struct NotchTimerView: View {
     
 
     @AppStorage("customTimerDuration") private var customTimerDuration: Double = 600
+    @State private var taskName = ""
+    @FocusState private var isTaskNameFocused: Bool
+    @State private var taskInputToken = UUID()
     @State private var customHours: Int = 0
     @State private var customMinutes: Int = 10
     @State private var customSeconds: Int = 0
@@ -69,6 +72,10 @@ struct NotchTimerView: View {
                 disabledState
             }
         }
+        .onChange(of: isTaskNameFocused) { _, focused in
+            vm.setAutoCloseSuppression(focused, token: taskInputToken)
+        }
+        .onDisappear { vm.setAutoCloseSuppression(false, token: taskInputToken) }
         .onAppear {
             lockAccentColorIfNeeded()
         }
@@ -212,15 +219,25 @@ struct NotchTimerView: View {
             let marqueeWidth = max(48, geometry.size.width - badgeWidth - spacing)
 
             HStack(alignment: .center, spacing: spacing) {
-                MarqueeText(
-                    .constant(timerDisplayName),
-                    font: .system(size: 20, weight: .semibold),
-                    nsFont: .title3,
-                    textColor: .white,
-                    minDuration: 0.2,
-                    frameWidth: marqueeWidth
-                )
-                .frame(width: marqueeWidth, height: 24, alignment: .leading)
+                if let id = timerManager.customTaskID {
+                    CountdownTaskTitle(timerManager: timerManager, taskID: id) { editing, token in
+                        vm.setAutoCloseSuppression(editing, token: token)
+                    }
+                    .id(id)
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: marqueeWidth, height: 24, alignment: .leading)
+                } else {
+                    MarqueeText(
+                        .constant(timerDisplayName),
+                        font: .system(size: 20, weight: .semibold),
+                        nsFont: .title3,
+                        textColor: .white,
+                        minDuration: 0.2,
+                        frameWidth: marqueeWidth
+                    )
+                    .frame(width: marqueeWidth, height: 24, alignment: .leading)
+                }
 
                 if let status {
                     statusBadge(status)
@@ -295,44 +312,55 @@ struct NotchTimerView: View {
     }
 
     private var customTimerComposer: some View {
-        Group {
-            if timerInputStyle == .ruler {
-                RulerTimerPicker(
-                    hours: $customHours,
-                    minutes: $customMinutes,
-                    seconds: $customSeconds,
-                    tintColor: timerAccentColor,
-                    startAction: startCustomTimer
-                )
-            } else if showTimerPresetsInNotchTab {
-                VStack(alignment: .leading, spacing: 12) {
-                    DurationInputRow(
-                        hours: $customHours,
-                        minutes: $customMinutes,
-                        seconds: $customSeconds,
-                        fieldWidth: durationFieldWidth
-                    )
-
-                    HStack(spacing: 10) {
-                        startButton
-                        resetButton
-                    }
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                TextField(String(localized: "Task Name", table: "CountdownTask"), text: $taskName)
+                    .textFieldStyle(.roundedBorder)
+                    .focused($isTaskNameFocused)
+                if timerInputStyle == .ruler {
+                    Button("Reset", action: resetCustomTimerInputs)
                 }
-            } else {
-                HStack(alignment: .center, spacing: 16) {
-                    DurationInputRow(
+            }
+            Group {
+                if timerInputStyle == .ruler {
+                    RulerTimerPicker(
                         hours: $customHours,
                         minutes: $customMinutes,
                         seconds: $customSeconds,
-                        fieldWidth: durationFieldWidth
+                        tintColor: timerAccentColor,
+                        startDisabled: isStartDisabled,
+                        startAction: startCustomTimer
                     )
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                } else if showTimerPresetsInNotchTab {
+                    VStack(alignment: .leading, spacing: 12) {
+                        DurationInputRow(
+                            hours: $customHours,
+                            minutes: $customMinutes,
+                            seconds: $customSeconds,
+                            fieldWidth: durationFieldWidth
+                        )
 
-                    VStack(spacing: 10) {
-                        startButton
-                        resetButton
+                        HStack(spacing: 10) {
+                            startButton
+                            resetButton
+                        }
                     }
-                    .frame(width: buttonColumnWidth, alignment: .top)
+                } else {
+                    HStack(alignment: .center, spacing: 16) {
+                        DurationInputRow(
+                            hours: $customHours,
+                            minutes: $customMinutes,
+                            seconds: $customSeconds,
+                            fieldWidth: durationFieldWidth
+                        )
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                        VStack(spacing: 10) {
+                            startButton
+                            resetButton
+                        }
+                        .frame(width: buttonColumnWidth, alignment: .top)
+                    }
                 }
             }
         }
@@ -459,7 +487,7 @@ struct NotchTimerView: View {
     }
 
     private var isStartDisabled: Bool {
-        customDurationInSeconds == 0
+        customDurationInSeconds <= 0 || TimerManager.trimmedTaskName(taskName).isEmpty
     }
 
     private var durationFieldWidth: CGFloat {
@@ -518,7 +546,9 @@ struct NotchTimerView: View {
 
     private func startCustomTimer() {
         withAnimation(.smooth) {
-            timerManager.startTimer(duration: customDurationInSeconds, name: String(localized: "Custom Timer"))
+            guard timerManager.startCustomTimer(duration: customDurationInSeconds, taskName: taskName) else { return }
+            taskName = ""
+            isTaskNameFocused = false
             if !enableMinimalisticUI {
                 coordinator.currentView = .timer
             }
@@ -527,6 +557,7 @@ struct NotchTimerView: View {
 
     private func resetCustomTimerInputs() {
         withAnimation(.smooth(duration: 0.2)) {
+            taskName = ""
             customHours = 0
             customMinutes = 0
             customSeconds = 0

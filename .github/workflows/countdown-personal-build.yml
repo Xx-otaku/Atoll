@@ -1,0 +1,61 @@
+name: Build personal Atoll
+
+on:
+  push:
+    branches: [feature/countdown-task-name]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Prepare Xcode and personal signing
+        run: |
+          xcodebuild -version
+          if ! xcrun --find metal >/dev/null 2>&1 || ! xcrun metal --version; then
+            xcodebuild -downloadComponent MetalToolchain
+          fi
+          # Use a temporary copy so the official build's entitlements stay intact.
+          cp DynamicIsland/DynamicIsland.entitlements "$RUNNER_TEMP/Personal.entitlements"
+          plutil -remove com.apple.security.mach-services "$RUNNER_TEMP/Personal.entitlements"
+      - name: Build
+        run: |
+          set -o pipefail
+          xcodebuild build -project DynamicIsland.xcodeproj -scheme DynamicIsland \
+            -configuration Release -destination 'platform=macOS,arch=arm64' \
+            -derivedDataPath "$RUNNER_TEMP/AtollBuild" \
+            ARCHS=arm64 ONLY_ACTIVE_ARCH=YES \
+            SWIFT_ACTIVE_COMPILATION_CONDITIONS='$(inherited) PERSONAL_ATOLL_BUILD' \
+            CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= \
+            'DEVELOPMENT_TEAM[sdk=macosx*]=' \
+            CODE_SIGN_IDENTITY=- 'CODE_SIGN_IDENTITY[sdk=macosx*]=-' \
+            CODE_SIGN_ENTITLEMENTS="$RUNNER_TEMP/Personal.entitlements" \
+            CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=YES \
+            CODE_SIGN_INJECT_BASE_ENTITLEMENTS=YES 2>&1 | tee "$RUNNER_TEMP/atoll-build.log"
+      - name: Verify and package
+        run: |
+          app="$RUNNER_TEMP/AtollBuild/Build/Products/Release/Atoll.app"
+          codesign --verify --deep --strict "$app"
+          test "$(lipo -archs "$app/Contents/MacOS/Atoll")" = arm64
+          test "$(plutil -extract CFBundleIdentifier raw "$app/Contents/Info.plist")" = com.Ebullioscopic.Atoll
+          mkdir package
+          ditto -c -k --sequesterRsrc --keepParent "$app" package/Atoll-2.3.3-Task-Name-arm64.zip
+          cd package
+          shasum -a 256 Atoll-2.3.3-Task-Name-arm64.zip > SHA256SUMS
+          git rev-parse HEAD > SOURCE-COMMIT
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Atoll-2.3.3-Task-Name-arm64
+          path: package/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: atoll-build-log
+          path: ${{ runner.temp }}/atoll-build.log

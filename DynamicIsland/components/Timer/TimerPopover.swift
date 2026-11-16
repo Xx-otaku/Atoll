@@ -30,6 +30,7 @@ struct TimerPopover: View {
     @AppStorage("customTimerDuration") private var customTimerDuration: Double = 600
     @Environment(\.dismiss) private var dismiss
     
+    @State private var taskName = ""
     @State private var customHours: Int = 0
     @State private var customMinutes: Int = 10
     @State private var customSeconds: Int = 0
@@ -45,7 +46,7 @@ struct TimerPopover: View {
             if timerManager.isTimerActive {
                 ActiveTimerSection(timerManager: timerManager)
             } else {
-                CustomTimerSection(hours: $customHours, minutes: $customMinutes, seconds: $customSeconds, startAction: startCustomTimer)
+                CustomTimerSection(hours: $customHours, minutes: $customMinutes, seconds: $customSeconds, taskName: $taskName, startAction: startCustomTimer)
                     .onChange(of: customHours) { _, _ in updateStoredCustomDuration() }
                     .onChange(of: customMinutes) { _, _ in updateStoredCustomDuration() }
                     .onChange(of: customSeconds) { _, _ in updateStoredCustomDuration() }
@@ -98,10 +99,11 @@ struct TimerPopover: View {
     
     private func startCustomTimer() {
         let duration = customDurationInSeconds
-        guard duration > 0 else { return }
-        withAnimation(.smooth) {
-            timerManager.startTimer(duration: duration, name: String(localized: "Custom Timer"))
+        let didStart = withAnimation(.smooth) {
+            timerManager.startCustomTimer(duration: duration, taskName: taskName)
         }
+        guard didStart else { return }
+        taskName = ""
         dismiss()
     }
     
@@ -145,10 +147,15 @@ private struct ActiveTimerSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
-                Text(timerManager.timerName)
-                    .font(.system(size: 15, weight: .semibold))
-                    .lineLimit(1)
-                    .foregroundColor(.primary)
+                Group {
+                    if let id = timerManager.customTaskID {
+                        CountdownTaskTitle(timerManager: timerManager, taskID: id)
+                            .id(id)
+                    } else {
+                        Text(timerManager.timerName).lineLimit(1)
+                    }
+                }
+                .font(.system(size: 15, weight: .semibold))
                 
                 Text(timerManager.formattedRemainingTime())
                     .font(.system(size: 28, weight: .bold, design: .monospaced))
@@ -229,6 +236,7 @@ private struct CustomTimerSection: View {
     @Binding var hours: Int
     @Binding var minutes: Int
     @Binding var seconds: Int
+    @Binding var taskName: String
     let startAction: () -> Void
     
     private var totalSeconds: Int {
@@ -240,6 +248,9 @@ private struct CustomTimerSection: View {
             Text(String(localized: "Custom Timer"))
                 .font(.system(size: 14, weight: .semibold))
             
+            TextField(String(localized: "Task Name", table: "CountdownTask"), text: $taskName)
+                .textFieldStyle(.roundedBorder)
+
             Grid(alignment: .leading, horizontalSpacing: 6, verticalSpacing: 8) {
                 GridRow {
                     DurationStepper(title: String(localized: "Hours"), value: $hours, range: 0...23)
@@ -258,7 +269,7 @@ private struct CustomTimerSection: View {
                     .labelStyle(.titleAndIcon)
             }
             .buttonStyle(.borderedProminent)
-            .disabled(totalSeconds == 0)
+            .disabled(totalSeconds == 0 || TimerManager.trimmedTaskName(taskName).isEmpty)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
@@ -379,4 +390,76 @@ private struct TimerPresetRow: View {
     .frame(width: 300)
         .padding()
         .background(Color.black)
+}
+
+/// Shared title for named countdowns in both timer interfaces.
+struct CountdownTaskTitle: View {
+    @ObservedObject var timerManager: TimerManager
+    let taskID: UUID
+    var onEditingChanged: (Bool, UUID) -> Void = { _, _ in }
+
+    @State private var showsFullName = false
+    @State private var isEditing = false
+    @State private var editedName = ""
+    @State private var editingToken = UUID()
+    @FocusState private var isEditorFocused: Bool
+
+    var body: some View {
+        Button {
+            guard !timerManager.isFinished else { return }
+            showsFullName = false
+            editedName = timerManager.timerName
+            isEditing = true
+        } label: {
+            Text(timerManager.timerName)
+                .lineLimit(1)
+                .truncationMode(.tail)
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint(timerManager.isFinished ? Text("") : Text("Click to edit the task name", tableName: "CountdownTask"))
+        .onHover { hovering in
+            showsFullName = hovering && !isEditing
+        }
+        .popover(isPresented: $showsFullName, arrowEdge: .bottom) {
+            ScrollView {
+                Text(timerManager.timerName)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .frame(width: 300)
+            .frame(maxHeight: 180)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+        .popover(isPresented: $isEditing, arrowEdge: .bottom) {
+            VStack(alignment: .leading, spacing: 12) {
+                TextField(String(localized: "Task Name", table: "CountdownTask"), text: $editedName)
+                    .focused($isEditorFocused)
+                    .onSubmit(save)
+                HStack {
+                    Spacer()
+                    Button("Cancel") { isEditing = false }
+                        .keyboardShortcut(.cancelAction)
+                    Button("Save", action: save)
+                        .disabled(TimerManager.trimmedTaskName(editedName).isEmpty)
+                }
+            }
+            .padding(12)
+            .frame(width: 300)
+            .task { isEditorFocused = true }
+        }
+        .onChange(of: isEditing) { _, editing in
+            onEditingChanged(editing, editingToken)
+        }
+        .onChange(of: timerManager.isFinished) { _, finished in
+            if finished { isEditing = false }
+        }
+        .onDisappear { onEditingChanged(false, editingToken) }
+    }
+
+    private func save() {
+        guard !TimerManager.trimmedTaskName(editedName).isEmpty else { return }
+        timerManager.renameCustomTimer(editedName, id: taskID)
+        isEditing = false
+    }
 }

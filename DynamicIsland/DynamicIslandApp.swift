@@ -30,21 +30,27 @@ struct DynamicNotchApp: App {
     @Default(.menubarIcon) var showMenuBarIcon
     @Environment(\.openWindow) var openWindow
 
-    let updaterController: SPUStandardUpdaterController
+    let updaterController: SPUStandardUpdaterController?
     /// Retained delegate instance that dynamically selects the Sparkle feed URL
     /// based on the user's update channel preference.
     private let updaterDelegate = AtollUpdaterDelegate()
 
     init() {
+        #if PERSONAL_ATOLL_BUILD
+        updaterController = nil
+        #else
         // Skip Sparkle's launch-time update check during UI testing.
         // The AtollUpdaterDelegate overrides the feed URL at runtime
         // based on the user's selected update channel.
         updaterController = SPUStandardUpdaterController(
             startingUpdater: !AppRuntimeEnvironment.isUITesting,
             updaterDelegate: updaterDelegate, userDriverDelegate: nil)
+        #endif
 
         // Initialize the settings window controller with the updater controller
-        SettingsWindowController.shared.setUpdaterController(updaterController)
+        if let updaterController {
+            SettingsWindowController.shared.setUpdaterController(updaterController)
+        }
     }
 
     var body: some Scene {
@@ -52,7 +58,9 @@ struct DynamicNotchApp: App {
             Button("Settings") {
                 SettingsWindowController.shared.showWindow()
             }
-            CheckForUpdatesView(updater: updaterController.updater)
+            if let updaterController {
+                CheckForUpdatesView(updater: updaterController.updater)
+            }
             Divider()
             Button("Restart Atoll") {
                 guard let bundleIdentifier = Bundle.main.bundleIdentifier else { return }

@@ -121,6 +121,7 @@ struct RulerTimerPicker: View {
     @Binding var minutes: Int
     @Binding var seconds: Int
     let tintColor: Color
+    let startDisabled: Bool
     let startAction: () -> Void
 
     // Raw continuous value for smooth dragging
@@ -280,7 +281,7 @@ struct RulerTimerPicker: View {
         HStack(alignment: .center, spacing: 0) {
             // Start Timer pill button — style matches the screenshot
             Button(action: {
-                guard totalMinutes.rounded() > 0 else { return }
+                guard !startDisabled else { return }
                 startAction()
             }) {
                 Text(String(localized: "Start Timer"))
@@ -298,8 +299,8 @@ struct RulerTimerPicker: View {
                     )
             }
             .buttonStyle(.plain)
-            .opacity(totalMinutes.rounded() == 0 ? 0.45 : 1.0)
-            .disabled(totalMinutes.rounded() == 0)
+            .opacity(startDisabled ? 0.45 : 1.0)
+            .disabled(startDisabled)
 
             Spacer()
 

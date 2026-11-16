@@ -1,0 +1,36 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "Task Name": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "任务名"
+          }
+        }
+      }
+    },
+    "Countdown Complete": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "倒计时结束"
+          }
+        }
+      }
+    },
+    "Click to edit the task name": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "点击可修改任务名"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}
