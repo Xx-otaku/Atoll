@@ -361,7 +361,9 @@ class DynamicIslandViewModel: NSObject, ObservableObject {
         let baseSize = Defaults[.enableMinimalisticUI] ? minimalisticOpenNotchSize(isDynamicIslandMode: shouldUseDynamicIslandMode(for: screen)) : openNotchSize
         var adjustedSize = baseSize
 
-        if coordinator.currentView == .notes || coordinator.currentView == .clipboard {
+        if coordinator.currentView == .timer {
+            adjustedSize.height = NotchTimerView.expandedHeight
+        } else if coordinator.currentView == .notes || coordinator.currentView == .clipboard {
             let preferred = coordinator.notesLayoutState.preferredHeight
             adjustedSize.height = max(adjustedSize.height, preferred)
             return adjustedSize

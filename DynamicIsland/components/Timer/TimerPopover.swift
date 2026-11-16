@@ -31,6 +31,7 @@ struct TimerPopover: View {
     @Environment(\.dismiss) private var dismiss
     
     @State private var taskName = ""
+    @FocusState private var isTaskNameFocused: Bool
     @State private var customHours: Int = 0
     @State private var customMinutes: Int = 10
     @State private var customSeconds: Int = 0
@@ -46,7 +47,7 @@ struct TimerPopover: View {
             if timerManager.isTimerActive {
                 ActiveTimerSection(timerManager: timerManager)
             } else {
-                CustomTimerSection(hours: $customHours, minutes: $customMinutes, seconds: $customSeconds, taskName: $taskName, startAction: startCustomTimer)
+                CustomTimerSection(hours: $customHours, minutes: $customMinutes, seconds: $customSeconds, taskName: $taskName, isTaskNameFocused: $isTaskNameFocused, startAction: startCustomTimer)
                     .onChange(of: customHours) { _, _ in updateStoredCustomDuration() }
                     .onChange(of: customMinutes) { _, _ in updateStoredCustomDuration() }
                     .onChange(of: customSeconds) { _, _ in updateStoredCustomDuration() }
@@ -237,6 +238,7 @@ private struct CustomTimerSection: View {
     @Binding var minutes: Int
     @Binding var seconds: Int
     @Binding var taskName: String
+    @FocusState.Binding var isTaskNameFocused: Bool
     let startAction: () -> Void
     
     private var totalSeconds: Int {
@@ -248,8 +250,7 @@ private struct CustomTimerSection: View {
             Text(String(localized: "Custom Timer"))
                 .font(.system(size: 14, weight: .semibold))
             
-            TextField(String(localized: "Task Name", table: "CountdownTask"), text: $taskName)
-                .textFieldStyle(.roundedBorder)
+            CountdownTaskField(text: $taskName, isFocused: $isTaskNameFocused)
 
             Grid(alignment: .leading, horizontalSpacing: 6, verticalSpacing: 8) {
                 GridRow {
@@ -433,8 +434,7 @@ struct CountdownTaskTitle: View {
         }
         .popover(isPresented: $isEditing, arrowEdge: .bottom) {
             VStack(alignment: .leading, spacing: 12) {
-                TextField(String(localized: "Task Name", table: "CountdownTask"), text: $editedName)
-                    .focused($isEditorFocused)
+                CountdownTaskField(text: $editedName, isFocused: $isEditorFocused)
                     .onSubmit(save)
                 HStack {
                     Spacer()
@@ -461,5 +461,37 @@ struct CountdownTaskTitle: View {
         guard !TimerManager.trimmedTaskName(editedName).isEmpty else { return }
         timerManager.renameCustomTimer(editedName, id: taskID)
         isEditing = false
+    }
+}
+
+
+struct CountdownTaskField: View {
+    @Binding var text: String
+    @FocusState.Binding var isFocused: Bool
+
+    private var title: String { String(localized: "Task Name", table: "CountdownTask") }
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "list.bullet.rectangle")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(.white.opacity(isFocused ? 0.86 : 0.58))
+                .accessibilityHidden(true)
+            TextField(title, text: $text, prompt: Text(title).foregroundStyle(.white.opacity(0.58)))
+                .textFieldStyle(.plain)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(.white)
+                .tint(.white)
+                .focused($isFocused)
+        }
+        .padding(.horizontal, 10)
+        .frame(height: 30)
+        .background(.black.opacity(0.83), in: RoundedRectangle(cornerRadius: 8))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8)
+                .strokeBorder(.white.opacity(isFocused ? 0.56 : 0.16), lineWidth: 1)
+                .allowsHitTesting(false)
+        }
+        .environment(\.colorScheme, .dark)
     }
 }

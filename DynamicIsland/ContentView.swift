@@ -158,7 +158,7 @@ struct ContentView: View {
         }
         
         if coordinator.currentView == .timer {
-            return CGSize(width: baseSize.width, height: 250) // Extra height for timer presets
+            return CGSize(width: baseSize.width, height: NotchTimerView.expandedHeight)
         }
         
         if coordinator.currentView == .notes || coordinator.currentView == .clipboard {
@@ -1205,12 +1205,25 @@ struct ContentView: View {
             notchHeight: notchContentHeight
         )
         let effectiveCenterWidth = inlineSneakPeekActive ? 380 : centerBaseWidth
-        let notchWidth = wingBaseWidth + effectiveCenterWidth + rightWingWidth
+        let showsTaskOnLeft = secondary == .timer && timerManager.customTaskID != nil
+        let taskLabelWidth = showsTaskOnLeft
+            ? min(TimerSupplementMetrics.timerNameFrameWidth(for: timerManager.timerName), 158)
+            : 0
+        let notchWidth = taskLabelWidth + wingBaseWidth + effectiveCenterWidth + rightWingWidth
         let badgeBaseSize = max(13, notchContentHeight * 0.36)
         let badgeDisplaySize = badgeDisplaySize(for: secondary, baseSize: badgeBaseSize)
         let badgeOffset = badgeOverlayOffset(for: secondary, badgeSize: badgeDisplaySize)
 
         HStack(spacing: 0) {
+            if showsTaskOnLeft {
+                Text(timerManager.timerName)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .padding(.horizontal, 7)
+                    .frame(width: taskLabelWidth, alignment: .leading)
+            }
             ZStack(alignment: .bottomTrailing) {
                 Color.clear
                     .aspectRatio(1, contentMode: .fit)
@@ -1253,7 +1266,7 @@ struct ContentView: View {
                                 .foregroundStyle(Defaults[.coloredSpectrogram] ? Color(nsColor: musicManager.avgColor) : Color.gray)
                                 .padding(.trailing, 8)
                                 .opacity((coordinator.expandingView.show && coordinator.expandingView.type == .music && Defaults[.enableSneakPeek] && Defaults[.sneakPeekStyles] == .inline) ? 1 : 0)
-                        } else if(coordinator.expandingView.show && coordinator.expandingView.type == .timer) {
+                        } else if(coordinator.expandingView.show && coordinator.expandingView.type == .timer && !showsTaskOnLeft) {
                             MarqueeText(
                                 .constant(timerManager.timerName),
                                 textColor: timerManager.timerColor,

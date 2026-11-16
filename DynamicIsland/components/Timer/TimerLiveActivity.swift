@@ -168,7 +168,7 @@ struct TimerLiveActivity: View {
     }
 
     private var shouldDisplayLabel: Bool {
-        showsLabel || showTransientLabel
+        timerManager.customTaskID != nil || showsLabel || showTransientLabel
     }
 
     private var showsInfoSection: Bool {
@@ -344,8 +344,11 @@ struct TimerLiveActivity: View {
             .frame(width: leftWingWidth, height: notchContentHeight)
             .background(alignment: .leading) {
                 HStack(spacing: showsInfoSection ? 8 : 0) {
+                    if timerManager.customTaskID != nil {
+                        infoSection
+                    }
                     iconSection
-                    if showsInfoSection {
+                    if showsInfoSection && timerManager.customTaskID == nil {
                         infoSection
                     }
                 }
@@ -411,10 +414,11 @@ struct TimerLiveActivity: View {
     }
     
     private var infoSection: some View {
-    let availableWidth = max(0, infoWidth - 10)
-    let safeWidth = max(44, availableWidth - 6)
-    let resolvedTextWidth = min(max(titleTextWidth, 44), safeWidth)
-        let marqueeLabel = shouldDisplayLabel && (timerManager.isFinished || timerManager.isOvertime || titleTextWidth > availableWidth)
+        let availableWidth = max(0, infoWidth - 10)
+        let safeWidth = max(44, availableWidth - 6)
+        let resolvedTextWidth = min(max(titleTextWidth, 44), safeWidth)
+        let marqueeLabel = shouldDisplayLabel && timerManager.customTaskID == nil
+            && (timerManager.isFinished || timerManager.isOvertime || titleTextWidth > availableWidth)
         let showsBarHere = showsBarProgress && !showsCountdown
         let barWidth = shouldDisplayLabel ? resolvedTextWidth : availableWidth
 

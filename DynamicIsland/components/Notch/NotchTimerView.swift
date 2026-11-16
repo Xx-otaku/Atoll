@@ -23,6 +23,8 @@ import AppKit
 #endif
 
 struct NotchTimerView: View {
+    static let expandedHeight: CGFloat = 278
+
     @EnvironmentObject var vm: DynamicIslandViewModel
     @ObservedObject var timerManager = TimerManager.shared
     @ObservedObject var coordinator = DynamicIslandViewCoordinator.shared
@@ -314,9 +316,7 @@ struct NotchTimerView: View {
     private var customTimerComposer: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
-                TextField(String(localized: "Task Name", table: "CountdownTask"), text: $taskName)
-                    .textFieldStyle(.roundedBorder)
-                    .focused($isTaskNameFocused)
+                CountdownTaskField(text: $taskName, isFocused: $isTaskNameFocused)
                 if timerInputStyle == .ruler {
                     Button("Reset", action: resetCustomTimerInputs)
                 }
