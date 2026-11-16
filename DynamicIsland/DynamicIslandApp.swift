@@ -382,12 +382,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         window.animationBehavior = .none
         // collectionBehavior is configured in DynamicIslandWindow.init
 
-        window.contentView = FirstMouseHostingView(
+        let hostingView = FirstMouseHostingView(
             rootView: ContentView()
                 .environmentObject(viewModel)
                 .environmentObject(webcamManager)
-                //.moveToSky()
         )
+        // The app sets this panel's frame explicitly. SwiftUI must not resize it
+        // from windowDidLayout while AppKit is already updating its constraints.
+        hostingView.sizingOptions = []
+        window.contentView = hostingView
         
         window.orderFrontRegardless()
         // Pin above every space (fullscreen included) only for "Never hide"; the
